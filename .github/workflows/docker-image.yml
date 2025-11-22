@@ -2,9 +2,7 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+    tags: [v*]
 
 jobs:
   build:
@@ -14,24 +12,21 @@ jobs:
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-
-    - name: Get date tag
-      id: date_tag
-      run: echo "DATE_TAG=$(date +%s)" >> $GITHUB_ENV
     
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ github.token }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
-        file: ./Dockerfile
         push: true
         tags: |
-          ghcr.io/netboot-infrastructure/traefik-error-pages:latest
-          ghcr.io/netboot-infrastructure/traefik-error-pages:${{ env.DATE_TAG }}
+          ghcr.io/${{ github.repository }}:latest
+          ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+        platforms: linux/amd64,linux/arm/v7,linux/arm/v6,linux/arm64
+        build-args: |
+            VERSION_TAG=${{ github.ref_name }}
