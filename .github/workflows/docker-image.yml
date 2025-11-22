@@ -1,0 +1,30 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Get date tag
+      id: date_tag
+      run: echo "DATE_TAG=$(date +%s)" >> $GITHUB_ENV
+      
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ghcr.io/netboot-infrastructure/traefik-error-pages:latest
+          ghcr.io/netboot-infrastructure/traefik-error-pages:${{ env.DATE_TAG }}
