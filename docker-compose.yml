@@ -1,0 +1,65 @@
+services:
+  # -----------------------------------------------------------------------------
+  # Traefik: reverse proxy / load balancer
+  # -----------------------------------------------------------------------------
+  traefik:
+    image: traefik:v2.2.7
+    container_name: traefik
+    restart: always
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+    volumes:
+      # Required so Traefik can listen to Docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      # Enable Traefik dashboard
+      - --api.dashboard=true
+      # Docker provider
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=proxy
+      # EntryPoint for HTTP (port 80)
+      - --entrypoints.webinsecure.address=:80
+    networks:
+      - proxy
+    labels:
+      # Allow Traefik to process this container
+      traefik.enable: "true"
+      # Dashboard Router
+      traefik.http.routers.traefik.rule: Host(`traefik.localhost`)
+      traefik.http.routers.traefik.service: api@internal
+      traefik.http.routers.traefik.entrypoints: webinsecure
+
+  # -----------------------------------------------------------------------------
+  # nginx_error: custom error page server
+  # -----------------------------------------------------------------------------
+  nginx_error:
+    build: .
+    read_only: true
+    networks:
+      - proxy
+    volumes:
+      - type: tmpfs
+        target: /tmp
+    labels:
+      # Allow Traefik to process this container
+      traefik.enable: "true"
+      # Catch-all router (matches all hosts)
+      traefik.http.routers.error-router.rule: HostRegexp(`{host:.+}`)
+      traefik.http.routers.error-router.priority: 1
+      traefik.http.routers.error-router.entrypoints: webinsecure
+      traefik.http.routers.error-router.middlewares: error-pages-middleware
+      # Error-page middleware
+      traefik.http.middlewares.error-pages-middleware.errors.status: 400-599
+      traefik.http.middlewares.error-pages-middleware.errors.service: error-pages-service
+      traefik.http.middlewares.error-pages-middleware.errors.query: "/{status}.html"
+      # Backend service for error pages
+      traefik.http.services.error-pages-service.loadbalancer.server.port: 80
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  proxy: {}
